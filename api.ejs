@@ -1,0 +1,169 @@
+////////////////////////API/////////////////////////////////
+app.use(cors());
+// Usa body-parser para analizar las solicitudes en formato JSON
+app.use(bodyParser.json());
+// app.use('/api',index);
+
+app.get('/api/administradores', (req, res) => {
+    connection.query('SELECT * FROM administrador', (error, results) => {
+        if (error) {
+            res.status(500).json({ error: 'Error al obtener alumnos' });
+        } else {
+            res.status(200).json(results);
+        }
+    });
+});
+ 
+// Ruta para obtener un administrador por ID
+app.get('/api/administradores/:id', (req, res) => {
+    const id = req.params.id;
+    connection.query('SELECT * FROM administrador WHERE id = ?', [id], (error, results) => {
+        if (error) {
+            res.status(500).json({ error: 'Error al obtener el administrador' });
+        } else {
+            if (results.length === 0) {
+                res.status(404).json({ error: 'Administrador no encontrado' });
+            } else {
+                res.status(200).json(results[0]);
+            }
+        }
+    });
+});
+
+// Ruta para obtener todos los alumnos
+app.get('/api/alumnos', (req, res) => {
+    connection.query('SELECT * FROM alumno', (error, results) => {
+        if (error) {
+            res.status(500).json({ error: 'Error al obtener alumnos' });
+        } else {
+            res.status(200).json(results);
+        }
+    });
+});
+
+app.get('/api/alumno/:id', (req, res) => {
+    const id = req.params.id;
+    connection.query('SELECT * FROM alumno WHERE id = ?', [id], (error, results) => {
+        if (error) {
+            res.status(500).json({ error: 'Error al obtener el alumno' });
+        } else {
+            if (results.length === 0) {
+                res.status(404).json({ error: 'Alumno no encontrado' });
+            } else {
+                res.status(200).json(results[0]);
+            }
+        }
+    });
+});
+
+//horas de acceso
+app.get('/api/acceso', (req, res) => {
+    const id = req.params.id;
+    connection.query('SELECT * FROM accesos', [id], (error, results) => {
+        if (error) {
+            res.status(500).json({ error: 'Error al obtener los datos de la tabla de acceso' });
+        } else {
+            if (results.length === 0) {
+                res.status(404).json({ error: 'Accesos encontrado' });
+            } else {
+                res.status(200).json(results[0]);
+            }
+        }
+    });
+});
+app.get('/accesos', (req, res) => {
+    connection.query('SELECT * FROM alumno INNER JOIN accesos ON alumno.idtarjeta = accesos.idtarjeta', (err, results) => {
+        if (err) {
+            console.error('Error al obtener los datos de los alumnos:', err);
+            res.status(500).json({ error: 'Error al obtener los datos de los alumnos' });
+            return;
+        }
+        res.json(results);
+    });
+});
+app.get('/accesos/:matricula', (req, res) => {
+    const matricula = req.params.matricula;
+    connection.query('SELECT * FROM alumno INNER JOIN accesos ON alumno.idtarjeta = accesos.idtarjeta WHERE alumno.matricula = ?', matricula, (err, results) => {
+        if (err) {
+            console.error('Error al obtener los datos de los alumnos:', err);
+            res.status(500).json({ error: 'Error al obtener los datos de los alumnos' });
+            return;
+        }
+        res.json(results);
+    });
+});
+app.get('/registros', (req, res) => {
+    connection.query('SELECT * FROM alumno', (err, results) => {
+        if (err) {
+            console.error('Error al obtener registros:', err);
+            res.status(500).json({ error: 'Error al obtener registros' });
+            return;
+        }
+        res.json(results);
+    });
+});
+
+///////////////////////////////////////LOGIN///////////////////////////////////////////////////
+// Endpoint para autenticar un usuario (login)
+// app.post('/login', (req, res) => {
+//     const { correo, password } = req.body;
+//     connection.query('SELECT * FROM alumno WHERE correo = ?', [correo], async (err, resultados) => {
+//         if (err) {
+//             console.error('Error al autenticar al usuario:', err);
+//             res.status(500).json({ error: 'Error al autenticar al usuario' });
+//             return;
+//         }
+//         if (resultados.length === 0) {
+//             res.status(401).json({ error: 'Credenciales inválidas' });
+//             return;
+//         }
+//         const usuario = resultados[0];
+//         const contraseñaValida = await bcrypt.compare(password, usuario.password);
+//         if (contraseñaValida) {
+//             res.json({ userId: usuario.id }); // Devuelve el ID del usuario autenticado
+//         } else {
+//             res.status(401).json({ error: 'Credenciales inválidas' });
+//         }
+//     });
+// });
+app.post('/login', (req, res) => {
+    const { correo, password } = req.body;
+    connection.query('SELECT * FROM alumno WHERE correo = ?', [correo], async (err, resultados) => {
+        if (err) {
+            console.error('Error al autenticar al usuario:', err);
+            res.status(500).json({ error: 'Error al autenticar al usuario' });
+            return;
+        }
+        if (resultados.length === 0) {
+            res.status(401).json({ error: 'Credenciales inválidas' });
+            return;
+        }
+        const usuario = resultados[0];
+        const contraseñaValida = await bcrypt.compare(password, usuario.password);
+        if (contraseñaValida) {
+            // Devuelve el ID del usuario autenticado junto con los datos del usuario
+            res.json({ userId: usuario.id, userData: usuario }); 
+        } else {
+            res.status(401).json({ error: 'Credenciales inválidas' });
+        }
+    });
+});
+
+////////////GRAFICAS///////
+// Endpoint para obtener el total de alumnos inscritos de cada carrera
+app.get('/alumnos/total-por-carrera', (req, res) => {
+    const sqlQuery = `
+        SELECT carrera, COUNT(*) AS total_alumnos_inscritos
+        FROM alumno
+        GROUP BY carrera;
+    `;
+    connection.query(sqlQuery, (err, results) => {
+        if (err) {
+            console.error('Error al obtener total de alumnos por carrera:', err);
+            res.status(500).json({ error: 'Error al obtener total de alumnos por carrera' });
+            return;
+        }
+        res.json(results);
+    });
+});
+/////////////////Fin de API/////////////////////////////
